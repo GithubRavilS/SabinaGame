@@ -1,0 +1,895 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>Sabina Mouse Hunt 3D</title>
+  <style>
+    :root {
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --panel: rgba(12, 20, 34, 0.82);
+      --line: rgba(170, 196, 255, 0.25);
+      --text: #f1f6ff;
+      --glow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      touch-action: manipulation;
+      font-family: Inter, "SF Pro Display", system-ui, sans-serif;
+    }
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #050a13;
+      color: var(--text);
+    }
+    .screen { position: absolute; inset: 0; }
+    .hidden { display: none !important; }
+    #setupScreen {
+      display: flex; flex-direction: column; gap: 10px;
+      padding-top: calc(var(--safe-top) + 10px);
+      padding-bottom: calc(var(--safe-bottom) + 10px);
+    }
+    #previewWrap {
+      flex: 1 1 50%; min-height: 42%;
+      margin: 0 10px;
+      border-radius: 24px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      box-shadow: var(--glow);
+      position: relative;
+      background: #0d1728;
+    }
+    #previewCanvas { width: 100%; height: 100%; display: block; }
+    #previewHint, #startButton {
+      position: absolute; top: 12px; z-index: 2;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 11px;
+      backdrop-filter: blur(8px);
+      font-size: 12px;
+    }
+    #previewHint { left: 12px; padding: 8px 10px; }
+    #startButton {
+      right: 12px; padding: 10px 12px; cursor: pointer;
+      font-weight: 700; color: #081322; border: none;
+      background: linear-gradient(115deg, #7ef3ff, #9cb4ff, #b69dff);
+      box-shadow: 0 8px 20px rgba(99, 175, 255, 0.4);
+    }
+    #bottomPanel {
+      flex: 1 1 50%;
+      min-height: 48%;
+      margin: 0 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    #optionsBox {
+      flex: 1;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: var(--glow);
+      padding: 10px;
+      overflow: auto;
+    }
+    #optionTitle { margin: 0 0 9px; font-size: 13px; color: #c8d8fa; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(82px, 1fr));
+      gap: 8px;
+    }
+    .option {
+      min-height: 42px;
+      border-radius: 11px;
+      border: 1px solid rgba(184, 208, 255, 0.24);
+      background: rgba(29, 45, 74, 0.86);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 650;
+      cursor: pointer;
+      padding: 6px;
+    }
+    .option.selected {
+      border-color: #77e7ff;
+      background: linear-gradient(145deg, rgba(53, 89, 145, 0.95), rgba(61, 52, 115, 0.95));
+    }
+    .chip {
+      width: 100%;
+      height: 22px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      margin-bottom: 4px;
+    }
+    #menuButtons {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      height: clamp(76px, 16vh, 108px);
+    }
+    .menu-btn {
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: rgba(17, 29, 49, 0.95);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 700;
+      box-shadow: var(--glow);
+    }
+    .menu-btn.active {
+      border-color: #7fe8ff;
+      background: linear-gradient(150deg, rgba(41, 73, 121, 0.95), rgba(36, 45, 84, 0.95));
+    }
+
+    #gameScreen { background: #07101e; }
+    #gameCanvas { width: 100%; height: 100%; display: block; touch-action: none; }
+    .pill {
+      background: rgba(7, 15, 27, 0.62);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 7px 10px;
+      font-size: 12px;
+      backdrop-filter: blur(7px);
+      white-space: nowrap;
+    }
+    #lives {
+      position: absolute; left: 10px; top: calc(var(--safe-top) + 8px);
+      display: flex; gap: 6px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      background: rgba(7, 15, 27, 0.62);
+      border: 1px solid var(--line);
+      backdrop-filter: blur(7px);
+    }
+    .heart {
+      width: 18px; height: 18px;
+      clip-path: path("M9,16 C5,12.7 1.2,9.8 1.2,6 C1.2,3.4 3.2,1.4 5.8,1.4 C7.2,1.4 8.5,2 9,3.1 C9.5,2 10.8,1.4 12.2,1.4 C14.8,1.4 16.8,3.4 16.8,6 C16.8,9.8 13,12.7 9,16 Z");
+      background: rgba(170, 183, 211, 0.45);
+    }
+    .heart.full {
+      background: linear-gradient(145deg, #ff9ab1, #ff5077);
+      box-shadow: 0 0 10px rgba(255, 84, 127, 0.6);
+    }
+    #stats {
+      position: absolute; right: 10px; top: calc(var(--safe-top) + 8px);
+      display: flex; gap: 6px;
+    }
+    #pause {
+      position: absolute; right: 10px; bottom: calc(var(--safe-bottom) + 14px);
+      width: 56px; height: 56px; border-radius: 50%;
+      border: 1px solid var(--line);
+      background: rgba(8, 15, 27, 0.74);
+      color: #e8f2ff; font-size: 18px; cursor: pointer;
+      box-shadow: var(--glow);
+    }
+    #joy {
+      position: absolute; left: 10px; bottom: calc(var(--safe-bottom) + 10px);
+      width: min(44vw, 185px); height: min(44vw, 185px);
+      border-radius: 50%;
+      border: 1px solid var(--line);
+      background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.22), rgba(115,152,216,0.08));
+      box-shadow: var(--glow);
+      touch-action: none;
+    }
+    #joyStick {
+      position: absolute; left: calc(50% - 33px); top: calc(50% - 33px);
+      width: 66px; height: 66px; border-radius: 50%;
+      background: radial-gradient(circle at 33% 33%, rgba(228,242,255,0.97), rgba(122,171,252,0.58));
+      border: 1px solid rgba(255,255,255,0.58);
+      pointer-events: none;
+    }
+    #toast {
+      position: absolute; left: 50%; bottom: calc(var(--safe-bottom) + 118px);
+      transform: translateX(-50%);
+      background: rgba(6, 12, 22, 0.9);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      font-size: 13px;
+      padding: 10px 14px;
+      opacity: 0; transition: opacity .2s ease;
+      max-width: min(92vw, 560px);
+      text-align: center;
+    }
+    #toast.show { opacity: 1; }
+    #overlay {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(4, 10, 18, 0.78);
+      backdrop-filter: blur(8px);
+      padding: 18px;
+    }
+    #modal {
+      width: min(92vw, 500px);
+      border-radius: 18px;
+      background: rgba(14, 24, 41, 0.97);
+      border: 1px solid var(--line);
+      padding: 16px;
+      box-shadow: var(--glow);
+    }
+    #modal h2 { margin: 0 0 10px; font-size: 21px; }
+    #modal p { margin: 0 0 14px; color: #bfd2f6; font-size: 14px; line-height: 1.42; }
+    #modalBtns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .mBtn {
+      min-height: 42px; border-radius: 11px; cursor: pointer;
+      border: 1px solid var(--line);
+      background: rgba(31, 51, 84, 0.95);
+      color: #edf4ff; font-weight: 680; font-size: 13px;
+    }
+    .mBtn.primary { border: none; color: #061120; background: linear-gradient(120deg, #7ff6ff, #9db6ff, #b79dff); }
+  </style>
+</head>
+<body>
+  <section id="setupScreen" class="screen">
+    <div id="previewWrap">
+      <canvas id="previewCanvas"></canvas>
+      <div id="previewHint">Проведи по экрану: вращение 360°</div>
+      <button id="startButton">▶ Старт</button>
+    </div>
+    <div id="bottomPanel">
+      <div id="optionsBox">
+        <h3 id="optionTitle"></h3>
+        <div id="optionContent"></div>
+      </div>
+      <div id="menuButtons">
+        <button class="menu-btn active" data-panel="color">🎨 Цвет</button>
+        <button class="menu-btn" data-panel="animal">🐾 Животное</button>
+        <button class="menu-btn" data-panel="map">🗺️ Карта</button>
+        <button class="menu-btn" data-panel="difficulty">⚡ Сложность</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="gameScreen" class="screen hidden">
+    <canvas id="gameCanvas"></canvas>
+    <div id="lives"></div>
+    <div id="stats">
+      <div id="levelStat" class="pill"></div>
+      <div id="miceStat" class="pill"></div>
+    </div>
+    <div id="joy"><div id="joyStick"></div></div>
+    <button id="pause">❚❚</button>
+    <div id="toast"></div>
+    <div id="overlay" class="hidden">
+      <div id="modal">
+        <h2 id="modalTitle"></h2>
+        <p id="modalText"></p>
+        <div id="modalBtns"></div>
+      </div>
+    </div>
+  </section>
+
+  <script type="module">
+    import * as THREE from "https://unpkg.com/three@0.161.0/build/three.module.js";
+
+    const colors = [
+      ["Лунный", "#f4f8ff"], ["Карамель", "#ffb07a"], ["Лазурь", "#6fd4ff"], ["Изумруд", "#58e0a8"], ["Рубин", "#ff5e82"],
+      ["Фиалка", "#b79dff"], ["Тигровый", "#ff8437"], ["Шоколад", "#6b4f3b"], ["Снежный", "#ffffff"], ["Графит", "#3f475c"],
+      ["Лайм", "#b7ff72"], ["Розовый", "#ff9bde"], ["Сапфир", "#506eff"], ["Бирюза", "#61f1d8"], ["Золото", "#ffd15f"]
+    ];
+    const animals = [
+      ["Кошка", 1.0], ["Лиса", 1.06], ["Пёс", 1.08], ["Хорёк", 1.12], ["Рысь", 1.04],
+      ["Енот", 0.98], ["Волчонок", 1.1], ["Пантера", 1.14], ["Ласка", 1.09], ["Сова", 0.95]
+    ];
+    const maps = {
+      city: { name: "Город", size: 1800, sky: 0x8ac8ff, floor: 0x707a86, road: 0x2d3442, dangerBase: 10, miceBase: 20 },
+      forest: { name: "Лес", size: 1900, sky: 0x7bcbb0, floor: 0x4d8553, road: 0x6d6248, dangerBase: 8, miceBase: 20 }
+    };
+    const difficulties = [
+      { key: "easy", name: "1 · Спокойно", speed: 1.0, danger: 0.85, need: 10 },
+      { key: "normal", name: "2 · Бодро", speed: 1.08, danger: 1.0, need: 12 },
+      { key: "hard", name: "3 · Жарко", speed: 1.16, danger: 1.2, need: 14 },
+      { key: "extreme", name: "4 · Экстрим", speed: 1.25, danger: 1.4, need: 16 },
+    ];
+
+    const state = {
+      setup: { panel: "color", color: colors[0][1], animal: 0, map: "city", difficulty: "normal", rotY: 0.4 },
+      game: null
+    };
+
+    const ui = {
+      setup: document.getElementById("setupScreen"),
+      game: document.getElementById("gameScreen"),
+      previewCanvas: document.getElementById("previewCanvas"),
+      optionTitle: document.getElementById("optionTitle"),
+      optionContent: document.getElementById("optionContent"),
+      menuButtons: [...document.querySelectorAll(".menu-btn")],
+      start: document.getElementById("startButton"),
+      gameCanvas: document.getElementById("gameCanvas"),
+      lives: document.getElementById("lives"),
+      level: document.getElementById("levelStat"),
+      mice: document.getElementById("miceStat"),
+      joy: document.getElementById("joy"),
+      stick: document.getElementById("joyStick"),
+      pause: document.getElementById("pause"),
+      toast: document.getElementById("toast"),
+      overlay: document.getElementById("overlay"),
+      modalTitle: document.getElementById("modalTitle"),
+      modalText: document.getElementById("modalText"),
+      modalBtns: document.getElementById("modalBtns")
+    };
+
+    const joy = { active: false, id: null, x: 0, y: 0, mag: 0 };
+    let preview = null;
+    let game = null;
+    let raf = 0;
+    let last = performance.now();
+    let toastTimer = 0;
+
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    const rand = (a, b) => Math.random() * (b - a) + a;
+    const pick = (arr) => arr[(Math.random() * arr.length) | 0];
+
+    function showToast(text) {
+      ui.toast.textContent = text;
+      ui.toast.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => ui.toast.classList.remove("show"), 2400);
+    }
+
+    function modal(title, text, buttons) {
+      ui.modalTitle.textContent = title;
+      ui.modalText.textContent = text;
+      ui.modalBtns.innerHTML = "";
+      buttons.forEach((b) => {
+        const el = document.createElement("button");
+        el.className = "mBtn" + (b.primary ? " primary" : "");
+        el.textContent = b.text;
+        el.addEventListener("click", b.onClick);
+        ui.modalBtns.appendChild(el);
+      });
+      ui.overlay.classList.remove("hidden");
+    }
+    function closeModal() { ui.overlay.classList.add("hidden"); }
+
+    function animalBody(color, scale = 1) {
+      const g = new THREE.Group();
+      const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.72, metalness: 0.02 });
+      const dark = new THREE.MeshStandardMaterial({ color: 0x192238, roughness: 0.82 });
+
+      const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.48 * scale, 1.02 * scale, 4, 8), mat);
+      body.rotation.z = Math.PI / 2;
+      body.position.y = 0.75 * scale;
+      g.add(body);
+
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.36 * scale, 16, 16), mat);
+      head.position.set(0.75 * scale, 0.95 * scale, 0);
+      g.add(head);
+
+      const ear = new THREE.ConeGeometry(0.12 * scale, 0.28 * scale, 12);
+      const e1 = new THREE.Mesh(ear, mat); e1.position.set(0.92 * scale, 1.27 * scale, 0.16 * scale); g.add(e1);
+      const e2 = new THREE.Mesh(ear, mat); e2.position.set(0.92 * scale, 1.27 * scale, -0.16 * scale); g.add(e2);
+
+      const eyeGeo = new THREE.SphereGeometry(0.04 * scale, 8, 8);
+      const eye1 = new THREE.Mesh(eyeGeo, dark); eye1.position.set(1.05 * scale, 0.98 * scale, 0.11 * scale); g.add(eye1);
+      const eye2 = new THREE.Mesh(eyeGeo, dark); eye2.position.set(1.05 * scale, 0.98 * scale, -0.11 * scale); g.add(eye2);
+
+      const legGeo = new THREE.CapsuleGeometry(0.11 * scale, 0.4 * scale, 4, 8);
+      const legs = [];
+      [[0.22,0.34,0.21],[0.22,0.34,-0.21],[-0.22,0.34,0.21],[-0.22,0.34,-0.21]].forEach((p)=>{
+        const l = new THREE.Mesh(legGeo, mat);
+        l.position.set(p[0]*scale,p[1]*scale,p[2]*scale);
+        g.add(l); legs.push(l);
+      });
+
+      const tail = new THREE.Mesh(new THREE.CapsuleGeometry(0.08 * scale, 0.52 * scale, 4, 8), mat);
+      tail.rotation.z = Math.PI / 2.2;
+      tail.position.set(-0.8 * scale, 0.98 * scale, 0);
+      g.add(tail);
+
+      g.userData.parts = { legs, tail, body };
+      return g;
+    }
+
+    function initPreview3D() {
+      const renderer = new THREE.WebGLRenderer({ canvas: ui.previewCanvas, antialias: true, alpha: true });
+      renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x12213b);
+      const cam = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
+      cam.position.set(3.8, 2.2, 3.8);
+
+      const hemi = new THREE.HemisphereLight(0xd8ecff, 0x2a3652, 1.1);
+      scene.add(hemi);
+      const dir = new THREE.DirectionalLight(0xffffff, 1.05);
+      dir.position.set(4, 8, 5);
+      scene.add(dir);
+
+      const floor = new THREE.Mesh(new THREE.CircleGeometry(4.6, 48), new THREE.MeshStandardMaterial({ color: 0x2a3854, roughness: 0.88 }));
+      floor.rotation.x = -Math.PI / 2;
+      scene.add(floor);
+
+      const animal = animalBody(state.setup.color, 1.35);
+      animal.position.y = 0.05;
+      scene.add(animal);
+
+      preview = { renderer, scene, cam, animal };
+      resizePreview();
+    }
+
+    function resizePreview() {
+      if (!preview) return;
+      const w = ui.previewCanvas.clientWidth;
+      const h = ui.previewCanvas.clientHeight;
+      preview.renderer.setSize(w, h, false);
+      preview.cam.aspect = w / Math.max(1, h);
+      preview.cam.updateProjectionMatrix();
+    }
+
+    function updatePreviewAnimal() {
+      if (!preview) return;
+      preview.scene.remove(preview.animal);
+      preview.animal = animalBody(state.setup.color, 1.35);
+      preview.scene.add(preview.animal);
+    }
+
+    function renderOptions() {
+      ui.menuButtons.forEach((b) => b.classList.toggle("active", b.dataset.panel === state.setup.panel));
+      const wrap = document.createElement("div");
+      wrap.className = "grid";
+
+      if (state.setup.panel === "color") {
+        ui.optionTitle.textContent = "Выбор цвета животного";
+        colors.forEach(([name, value]) => {
+          const b = document.createElement("button");
+          b.className = "option" + (state.setup.color === value ? " selected" : "");
+          b.innerHTML = `<div class="chip" style="background:${value}"></div>${name}`;
+          b.onclick = () => { state.setup.color = value; updatePreviewAnimal(); renderOptions(); };
+          wrap.appendChild(b);
+        });
+      } else if (state.setup.panel === "animal") {
+        ui.optionTitle.textContent = "Выбор животного (10 вариантов)";
+        animals.forEach((a, i) => {
+          const b = document.createElement("button");
+          b.className = "option" + (state.setup.animal === i ? " selected" : "");
+          b.textContent = a[0];
+          b.onclick = () => { state.setup.animal = i; renderOptions(); };
+          wrap.appendChild(b);
+        });
+      } else if (state.setup.panel === "map") {
+        ui.optionTitle.textContent = "Выбор карты";
+        Object.entries(maps).forEach(([k, v]) => {
+          const b = document.createElement("button");
+          b.className = "option" + (state.setup.map === k ? " selected" : "");
+          b.textContent = v.name;
+          b.onclick = () => { state.setup.map = k; renderOptions(); };
+          wrap.appendChild(b);
+        });
+      } else {
+        ui.optionTitle.textContent = "Выбор скорости/сложности";
+        difficulties.forEach((d) => {
+          const b = document.createElement("button");
+          b.className = "option" + (state.setup.difficulty === d.key ? " selected" : "");
+          b.textContent = d.name;
+          b.onclick = () => { state.setup.difficulty = d.key; renderOptions(); };
+          wrap.appendChild(b);
+        });
+      }
+      ui.optionContent.innerHTML = "";
+      ui.optionContent.appendChild(wrap);
+    }
+
+    function createWorld(g) {
+      const scene = g.scene;
+      const map = g.map;
+      scene.background = new THREE.Color(map.sky);
+      scene.fog = new THREE.Fog(map.sky, 80, map.size * 0.68);
+
+      const ambient = new THREE.HemisphereLight(0xe6f4ff, map.floor, 1.0); scene.add(ambient);
+      const sun = new THREE.DirectionalLight(0xffffff, 1.08); sun.position.set(180, 260, 120); scene.add(sun);
+
+      const ground = new THREE.Mesh(
+        new THREE.PlaneGeometry(map.size, map.size, 64, 64),
+        new THREE.MeshStandardMaterial({ color: map.floor, roughness: 0.95, metalness: 0.02 })
+      );
+      ground.rotation.x = -Math.PI / 2;
+      scene.add(ground);
+
+      g.roadSegments = [];
+      g.cityBlocks = [];
+      g.trees = [];
+      g.cars = [];
+      g.pedestrians = [];
+      g.predators = [];
+      g.mice = [];
+      g.trails = [];
+      g.pickups = [];
+
+      if (g.mode === "city") {
+        const roadMat = new THREE.MeshStandardMaterial({ color: map.road, roughness: 0.9 });
+        for (let i = -4; i <= 4; i++) {
+          const road = new THREE.Mesh(new THREE.BoxGeometry(map.size, 0.2, 16), roadMat);
+          road.position.set(0, 0.1, i * 150);
+          scene.add(road); g.roadSegments.push({ mesh: road, dir: new THREE.Vector3(1,0,0), horizontal: true, lane: i * 150 });
+        }
+        for (let i = -4; i <= 4; i++) {
+          const road = new THREE.Mesh(new THREE.BoxGeometry(16, 0.2, map.size), roadMat);
+          road.position.set(i * 150, 0.1, 0);
+          scene.add(road); g.roadSegments.push({ mesh: road, dir: new THREE.Vector3(0,0,1), horizontal: false, lane: i * 150 });
+        }
+        const bMat = new THREE.MeshStandardMaterial({ color: 0x8fa2bd, roughness: 0.7, metalness: 0.1 });
+        for (let i = 0; i < 300; i++) {
+          const w = rand(12, 34), d = rand(12, 34), h = rand(16, 115);
+          const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), bMat);
+          b.position.set(rand(-map.size/2+20, map.size/2-20), h/2, rand(-map.size/2+20, map.size/2-20));
+          if (Math.abs(b.position.x % 150) < 22 || Math.abs(b.position.z % 150) < 22) continue;
+          scene.add(b); g.cityBlocks.push(b);
+        }
+      } else {
+        const lake = new THREE.Mesh(
+          new THREE.CircleGeometry(130, 42),
+          new THREE.MeshStandardMaterial({ color: 0x3f88c8, transparent: true, opacity: 0.78, roughness: 0.35 })
+        );
+        lake.rotation.x = -Math.PI / 2;
+        lake.position.set(220, 0.22, -260);
+        scene.add(lake);
+        for (let i = 0; i < 600; i++) {
+          const t = new THREE.Group();
+          const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.5, rand(2.6, 4.8), 6), new THREE.MeshStandardMaterial({ color: 0x6f5138, roughness: 0.95 }));
+          trunk.position.y = trunk.geometry.parameters.height / 2;
+          const top = new THREE.Mesh(new THREE.ConeGeometry(rand(1.3, 2.4), rand(3.2, 5.5), 7), new THREE.MeshStandardMaterial({ color: pick([0x1f6e38,0x33814a,0x2f7540]), roughness: 0.88 }));
+          top.position.y = trunk.position.y + trunk.geometry.parameters.height * 0.56;
+          t.add(trunk); t.add(top);
+          t.position.set(rand(-map.size/2+14, map.size/2-14), 0, rand(-map.size/2+14, map.size/2-14));
+          scene.add(t); g.trees.push(t);
+        }
+      }
+
+      const dangerScale = g.diff.danger * (1 + (g.level - 1) * 0.25);
+      const carCount = g.mode === "city" ? Math.floor(14 * dangerScale) : 0;
+      const pedCount = g.mode === "city" ? Math.floor(18 * dangerScale) : Math.floor(10 * dangerScale);
+      const predatorCount = g.mode === "forest" ? Math.floor(16 * dangerScale) : Math.floor(6 * dangerScale);
+
+      for (let i = 0; i < carCount; i++) spawnCar(g);
+      for (let i = 0; i < pedCount; i++) spawnPed(g);
+      for (let i = 0; i < predatorCount; i++) spawnPredator(g);
+
+      const miceTotal = g.map.miceBase + g.level * 2;
+      for (let i = 0; i < miceTotal; i++) spawnMouse(g);
+      for (let i = 0; i < 34; i++) spawnPickup(g);
+    }
+
+    function randomPos(size, pad = 16) { return rand(-size / 2 + pad, size / 2 - pad); }
+    function spawnCar(g) {
+      const lane = pick(g.roadSegments.filter((r) => Math.random() < 0.2 || r.horizontal));
+      if (!lane) return;
+      const m = new THREE.Mesh(new THREE.BoxGeometry(5.2, 2, 2.7), new THREE.MeshStandardMaterial({ color: pick([0xff5f7f,0xf9d26a,0x80b7ff,0x57d7ad]), roughness: 0.45 }));
+      if (lane.horizontal) {
+        m.position.set(randomPos(g.map.size), 1.1, lane.lane + rand(-2.5, 2.5));
+      } else {
+        m.position.set(lane.lane + rand(-2.5, 2.5), 1.1, randomPos(g.map.size));
+        m.rotation.y = Math.PI / 2;
+      }
+      g.scene.add(m);
+      g.cars.push({ mesh: m, horizontal: lane.horizontal, speed: rand(36, 64) * g.diff.danger * (1 + g.level * 0.05), dir: Math.random() < 0.5 ? 1 : -1 });
+    }
+    function spawnPed(g) {
+      const m = new THREE.Mesh(new THREE.CapsuleGeometry(0.55, 1.2, 3, 8), new THREE.MeshStandardMaterial({ color: pick([0xd1e1ff,0xbad0ef,0xe2d4c3,0xa8c4f0]), roughness: 0.82 }));
+      m.position.set(randomPos(g.map.size), 1.2, randomPos(g.map.size));
+      g.scene.add(m);
+      g.pedestrians.push({ mesh: m, v: new THREE.Vector3(rand(-1,1),0,rand(-1,1)).normalize(), speed: rand(8, 14) * g.diff.danger });
+    }
+    function spawnPredator(g) {
+      const m = animalBody("#ff8d8d", 0.72);
+      m.position.set(randomPos(g.map.size), 0, randomPos(g.map.size));
+      g.scene.add(m);
+      g.predators.push({ mesh: m, v: new THREE.Vector3(rand(-1,1),0,rand(-1,1)).normalize(), speed: rand(9, 17) * g.diff.danger });
+    }
+    function spawnMouse(g) {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(0.35, 12, 12), new THREE.MeshStandardMaterial({ color: 0xc9d0dd, roughness: 0.9 }));
+      m.position.set(randomPos(g.map.size, 22), 0.35, randomPos(g.map.size, 22));
+      g.scene.add(m);
+      g.mice.push({ mesh: m, found: false });
+
+      for (let i = 0; i < 4; i++) {
+        const p = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 8), new THREE.MeshStandardMaterial({ color: 0xfff39a, emissive: 0x524a13, emissiveIntensity: 0.35 }));
+        p.position.set(m.position.x + rand(-10,10), 0.16, m.position.z + rand(-10,10));
+        g.scene.add(p);
+        g.trails.push(p);
+      }
+    }
+    function spawnPickup(g) {
+      const speed = Math.random() < 0.5;
+      const m = new THREE.Mesh(new THREE.OctahedronGeometry(0.45), new THREE.MeshStandardMaterial({
+        color: speed ? 0x8ce8ff : 0xa58dff,
+        emissive: speed ? 0x11485a : 0x25154f,
+        emissiveIntensity: 0.55
+      }));
+      m.position.set(randomPos(g.map.size, 20), 0.8, randomPos(g.map.size, 20));
+      g.scene.add(m);
+      g.pickups.push({ mesh: m, type: speed ? "speed" : "shield", taken: false });
+    }
+
+    function createGame() {
+      const diff = difficulties.find((d) => d.key === state.setup.difficulty) || difficulties[1];
+      const mode = state.setup.map;
+      const map = maps[mode];
+
+      const renderer = new THREE.WebGLRenderer({ canvas: ui.gameCanvas, antialias: true });
+      renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      const scene = new THREE.Scene();
+      const cam = new THREE.PerspectiveCamera(58, 1, 0.1, 3500);
+      cam.position.set(0, 4, 8);
+
+      const player = animalBody(state.setup.color, 1);
+      player.position.set(0, 0, 0);
+      scene.add(player);
+
+      const g = {
+        renderer, scene, cam, player,
+        mode, map, diff, level: 1,
+        lives: 5, livesMax: 5,
+        need: diff.need, found: 0,
+        speedBuff: 0, shield: 0, invincible: 0,
+        paused: false, hintsT: 0
+      };
+      createWorld(g);
+      resizeGame();
+      return g;
+    }
+
+    function resetLevelStart(g) {
+      g.found = 0;
+      g.need = Math.min(24, g.diff.need + (g.level - 1) * 2);
+      g.speedBuff = 0; g.shield = 0; g.invincible = 1.6;
+      g.player.position.set(0, 0, 0);
+      for (const obj of [...g.cars, ...g.pedestrians, ...g.predators, ...g.mice, ...g.pickups]) g.scene.remove(obj.mesh);
+      g.trails.forEach((t) => g.scene.remove(t));
+      g.cars = []; g.pedestrians = []; g.predators = []; g.mice = []; g.pickups = []; g.trails = [];
+      createWorld(g);
+      updateHud();
+    }
+
+    function loseLife(reason) {
+      const g = state.game;
+      if (!g || g.invincible > 0) return;
+      if (g.shield > 0) { g.shield = 0; g.invincible = 1.0; showToast("Щит спас от урона!"); return; }
+      g.lives -= 1;
+      g.invincible = 1.8;
+      updateHud();
+      if (g.lives <= 0) {
+        g.lives = g.livesMax;
+        resetLevelStart(g);
+        showToast(`Пять жизней закончились (${reason}). Уровень начат заново.`);
+      } else {
+        g.player.position.set(0, 0, 0);
+        showToast(`Потеря жизни (${reason}). Осталось ${g.lives}.`);
+      }
+    }
+
+    function levelUp() {
+      const g = state.game;
+      g.level += 1;
+      g.lives = g.livesMax;
+      g.need = Math.min(24, g.need + 2);
+      resetLevelStart(g);
+      showToast(`Уровень ${g.level}: мир сложнее, враги быстрее.`);
+    }
+
+    function updateHud() {
+      const g = state.game; if (!g) return;
+      ui.lives.innerHTML = "";
+      for (let i = 0; i < g.livesMax; i++) {
+        const h = document.createElement("div");
+        h.className = "heart" + (i < g.lives ? " full" : "");
+        ui.lives.appendChild(h);
+      }
+      ui.level.textContent = `Уровень ${g.level}`;
+      ui.mice.textContent = `Мышки ${g.found}/${g.need}`;
+    }
+
+    function startGame() {
+      state.game = createGame();
+      ui.setup.classList.add("hidden");
+      ui.game.classList.remove("hidden");
+      updateHud();
+      showToast("Ищи следы сыра, находи мышек и избегай опасностей!");
+    }
+    function backToSetup() {
+      state.game = null;
+      ui.game.classList.add("hidden");
+      ui.setup.classList.remove("hidden");
+      closeModal();
+    }
+
+    function togglePause(force) {
+      const g = state.game; if (!g) return;
+      g.paused = typeof force === "boolean" ? force : !g.paused;
+      ui.pause.textContent = g.paused ? "▶" : "❚❚";
+      if (g.paused) {
+        modal("Пауза", "Игра остановлена. Можно продолжить или вернуться в меню.", [
+          { text: "Продолжить", primary: true, onClick: () => { closeModal(); togglePause(false); } },
+          { text: "Главное меню", onClick: backToSetup }
+        ]);
+      } else {
+        closeModal();
+      }
+    }
+
+    function updateJoyPos(clientX, clientY) {
+      const r = ui.joy.getBoundingClientRect();
+      const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      let dx = clientX - cx, dy = clientY - cy;
+      const max = r.width * 0.34;
+      const len = Math.hypot(dx, dy);
+      if (len > max) { dx = dx / len * max; dy = dy / len * max; }
+      joy.x = dx / max; joy.y = dy / max; joy.mag = clamp(Math.hypot(joy.x, joy.y), 0, 1);
+      ui.stick.style.left = `${r.width/2 + dx - ui.stick.clientWidth/2}px`;
+      ui.stick.style.top = `${r.height/2 + dy - ui.stick.clientHeight/2}px`;
+    }
+    function resetJoy() {
+      joy.x = joy.y = joy.mag = 0;
+      ui.stick.style.left = "calc(50% - 33px)";
+      ui.stick.style.top = "calc(50% - 33px)";
+    }
+
+    function animateAnimal(mesh, t, moving) {
+      const p = mesh.userData.parts;
+      if (!p) return;
+      p.body.position.y = 0.75 + Math.sin(t * 8) * (moving ? 0.03 : 0.012);
+      const a = moving ? Math.sin(t * 17) * 0.2 : 0;
+      p.legs[0].rotation.x = a; p.legs[1].rotation.x = -a; p.legs[2].rotation.x = -a; p.legs[3].rotation.x = a;
+      p.tail.rotation.y = Math.sin(t * 7) * 0.35;
+    }
+
+    function updateGame(dt, now) {
+      const g = state.game;
+      if (!g || g.paused) return;
+      g.invincible = Math.max(0, g.invincible - dt);
+      g.speedBuff = Math.max(0, g.speedBuff - dt);
+      g.shield = Math.max(0, g.shield - dt);
+
+      const p = g.player.position;
+      const rotTarget = Math.atan2(joy.x, joy.y);
+      if (joy.mag > 0.02) g.player.rotation.y += (rotTarget - g.player.rotation.y) * 0.14;
+      const speedBase = 28 * g.diff.speed * animals[state.setup.animal][1] * (g.speedBuff > 0 ? 1.35 : 1);
+      const moving = joy.mag > 0.04;
+      if (moving) {
+        const dir = new THREE.Vector3(Math.sin(g.player.rotation.y), 0, Math.cos(g.player.rotation.y));
+        p.addScaledVector(dir, speedBase * dt * joy.mag);
+      }
+      p.x = clamp(p.x, -g.map.size/2 + 3, g.map.size/2 - 3);
+      p.z = clamp(p.z, -g.map.size/2 + 3, g.map.size/2 - 3);
+
+      animateAnimal(g.player, now * 0.001, moving);
+
+      for (const c of g.cars) {
+        if (c.horizontal) c.mesh.position.x += c.speed * dt * c.dir;
+        else c.mesh.position.z += c.speed * dt * c.dir;
+        if (Math.abs(c.mesh.position.x) > g.map.size/2 + 30) c.mesh.position.x *= -1;
+        if (Math.abs(c.mesh.position.z) > g.map.size/2 + 30) c.mesh.position.z *= -1;
+        if (p.distanceTo(c.mesh.position) < 2.9) loseLife("машина");
+      }
+      for (const ped of g.pedestrians) {
+        if (Math.random() < 0.015) ped.v.set(rand(-1,1),0,rand(-1,1)).normalize();
+        ped.mesh.position.addScaledVector(ped.v, ped.speed * dt);
+        if (Math.abs(ped.mesh.position.x) > g.map.size/2) ped.v.x *= -1;
+        if (Math.abs(ped.mesh.position.z) > g.map.size/2) ped.v.z *= -1;
+        ped.mesh.lookAt(ped.mesh.position.clone().add(ped.v));
+        if (p.distanceTo(ped.mesh.position) < 2.0) loseLife("пешеход");
+      }
+      for (const pr of g.predators) {
+        const toward = new THREE.Vector3(p.x - pr.mesh.position.x, 0, p.z - pr.mesh.position.z);
+        const dist = toward.length();
+        toward.normalize();
+        pr.mesh.position.addScaledVector(toward, pr.speed * dt * (dist < 70 ? 1.15 : 0.45));
+        pr.mesh.lookAt(p.x, 0.4, p.z);
+        animateAnimal(pr.mesh, now * 0.001, true);
+        if (dist < 2.3) loseLife("хищник");
+      }
+
+      for (const m of g.mice) {
+        if (m.found) continue;
+        if (p.distanceTo(m.mesh.position) < 1.7) {
+          m.found = true;
+          m.mesh.visible = false;
+          g.found += 1;
+          updateHud();
+          if (g.found >= g.need) levelUp();
+          else showToast(`Мышка найдена! Осталось ${g.need - g.found}.`);
+        }
+      }
+
+      for (const pickUp of g.pickups) {
+        if (pickUp.taken) continue;
+        pickUp.mesh.rotation.y += dt * 2;
+        pickUp.mesh.position.y = 0.8 + Math.sin(now * 0.003) * 0.15;
+        if (p.distanceTo(pickUp.mesh.position) < 1.6) {
+          pickUp.taken = true;
+          pickUp.mesh.visible = false;
+          if (pickUp.type === "speed") { g.speedBuff = 10; showToast("Буст: +скорость на 10 сек"); }
+          else { g.shield = 12; showToast("Щит: защита 12 сек"); }
+        }
+      }
+
+      g.hintsT += dt;
+      if (g.hintsT > 13) {
+        g.hintsT = 0;
+        showToast(pick([
+          "Проверь ближайшие дворы и узкие проходы.",
+          "Следы сыра ведут к мышке, смотри под ноги.",
+          "В плотных местах города мышки прячутся чаще.",
+          "В лесу ищи рядом с опушками и озером."
+        ]));
+      }
+
+      // Third-person camera behind player
+      const back = new THREE.Vector3(Math.sin(g.player.rotation.y), 0, Math.cos(g.player.rotation.y)).multiplyScalar(-9);
+      const targetCam = new THREE.Vector3(p.x + back.x, 5.6, p.z + back.z);
+      g.cam.position.lerp(targetCam, 0.12);
+      g.cam.lookAt(p.x, 1.45, p.z);
+    }
+
+    function render(now) {
+      const dt = clamp((now - last) / 1000, 0, 0.05);
+      last = now;
+
+      if (preview) {
+        preview.animal.rotation.y += (state.setup.rotY - preview.animal.rotation.y) * 0.2;
+        animateAnimal(preview.animal, now * 0.001, true);
+        preview.renderer.render(preview.scene, preview.cam);
+      }
+      if (state.game) {
+        updateGame(dt, now);
+        state.game.renderer.render(state.game.scene, state.game.cam);
+      }
+      raf = requestAnimationFrame(render);
+    }
+
+    function resizeGame() {
+      if (!state.game) return;
+      const w = ui.gameCanvas.clientWidth, h = ui.gameCanvas.clientHeight;
+      state.game.renderer.setSize(w, h, false);
+      state.game.cam.aspect = w / Math.max(1, h);
+      state.game.cam.updateProjectionMatrix();
+    }
+
+    function bind() {
+      ui.menuButtons.forEach((b) => b.addEventListener("click", () => { state.setup.panel = b.dataset.panel; renderOptions(); }));
+      ui.start.addEventListener("click", startGame);
+      ui.pause.addEventListener("click", () => togglePause());
+      window.addEventListener("keydown", (e) => { if (e.key === "Escape" && state.game) togglePause(); });
+
+      let drag = false, pid = null, lastX = 0;
+      ui.previewCanvas.addEventListener("pointerdown", (e) => { drag = true; pid = e.pointerId; lastX = e.clientX; ui.previewCanvas.setPointerCapture(pid); });
+      ui.previewCanvas.addEventListener("pointermove", (e) => { if (!drag || e.pointerId !== pid) return; state.setup.rotY += (e.clientX - lastX) * 0.012; lastX = e.clientX; });
+      const endPrev = (e) => { if (e.pointerId === pid) { drag = false; pid = null; } };
+      ui.previewCanvas.addEventListener("pointerup", endPrev);
+      ui.previewCanvas.addEventListener("pointercancel", endPrev);
+
+      ui.joy.addEventListener("pointerdown", (e) => {
+        joy.active = true; joy.id = e.pointerId; ui.joy.setPointerCapture(e.pointerId);
+        updateJoyPos(e.clientX, e.clientY);
+      });
+      ui.joy.addEventListener("pointermove", (e) => { if (joy.active && joy.id === e.pointerId) updateJoyPos(e.clientX, e.clientY); });
+      const joyEnd = (e) => {
+        if (!joy.active || joy.id !== e.pointerId) return;
+        joy.active = false; joy.id = null; resetJoy();
+      };
+      ui.joy.addEventListener("pointerup", joyEnd);
+      ui.joy.addEventListener("pointercancel", joyEnd);
+
+      window.addEventListener("resize", () => { resizePreview(); resizeGame(); resetJoy(); });
+      window.addEventListener("orientationchange", () => setTimeout(() => { resizePreview(); resizeGame(); resetJoy(); }, 120));
+    }
+
+    function boot() {
+      initPreview3D();
+      renderOptions();
+      bind();
+      last = performance.now();
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(render);
+    }
+
+    boot();
+  </script>
+</body>
+</html>
