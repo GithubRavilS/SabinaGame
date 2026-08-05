@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "https://cry-maden008.pythonanywhere.com/portfolio-check/$1"
+    }
+  ]
+}
